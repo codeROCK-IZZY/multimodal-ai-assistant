@@ -323,7 +323,7 @@ resource "aws_ecs_cluster" "this" {
 
 locals {
   files_mount = [{ sourceVolume = "files", containerPath = "/app/var/files", readOnly = false }]
-  log_config  = { for svc in ["api", "worker", "web"] : svc => {
+  log_config = { for svc in ["api", "worker", "web"] : svc => {
     logDriver = "awslogs"
     options = {
       awslogs-group         = aws_cloudwatch_log_group.this[svc].name
