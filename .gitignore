@@ -1,0 +1,19 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+var/
+backend/var/
+.coverage
+coverage.xml
+coverage/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+# downloaded model files (MMA_MODEL_CACHE_DIR) if kept inside the repo
+models/

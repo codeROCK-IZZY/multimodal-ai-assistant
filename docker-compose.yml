@@ -1,0 +1,61 @@
+# Local development / demo stack.
+#   cp .env.example .env    (then edit the CHANGE_ME values)
+#   docker compose up -d --build        # first build downloads the local models (~400 MB)
+#   docker compose run --rm api python -m app.cli load-demo   # demo users, files and conversations
+# Open http://localhost:8080  (log in as alex@example.com or admin@example.com)
+name: multimodal-assistant
+
+x-backend: &backend
+  build: ./backend
+  env_file: .env
+  environment:
+    MMA_DATABASE_URL: postgresql+psycopg://mma:${POSTGRES_PASSWORD}@db:5432/mma
+  volumes: [files:/app/var/files]  # uploads are written by the API and processed by the worker
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mma
+      POSTGRES_USER: mma
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mma -d mma"]
+      interval: 5s
+      retries: 10
+    ports: ["127.0.0.1:5435:5432"]
+
+  migrate:
+    <<: *backend
+    command: ["python", "-m", "app.cli", "migrate"]
+    healthcheck: { disable: true }
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    <<: *backend
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    ports: ["127.0.0.1:8002:8000"]
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.cli", "worker"]
+    healthcheck: { disable: true }
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    stop_grace_period: 120s  # let a long transcription finish
+
+  web:
+    build: ./frontend
+    environment:
+      API_UPSTREAM: http://api:8000
+    depends_on: [api]
+    ports: ["127.0.0.1:8080:8080"]
+
+volumes:
+  pgdata:
+  files:
